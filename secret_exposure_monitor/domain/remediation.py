@@ -32,7 +32,14 @@ class RemediationPlaybook(BaseModel):
 
     playbook_id: UUID = Field(default_factory=uuid4)
     secret_type: str
-    provider: str
+    # Optional: some secret types have no identifiable provider (e.g. a
+    # generic high-entropy string). Kept required (str) in an earlier draft
+    # of this same project — instantiating a playbook for such a type
+    # crashed with a ValidationError every time. Nothing currently
+    # constructs a RemediationPlaybook in this codebase, so it hasn't bitten
+    # yet, but it's the same landmine, fixed proactively before something
+    # does construct one.
+    provider: str | None = None
 
     steps: list[RemediationAction]
     auto_execute: bool = False  # Requires manual approval if False

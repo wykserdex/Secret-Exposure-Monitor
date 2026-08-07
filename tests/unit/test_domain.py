@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 from secret_exposure_monitor.domain.finding import FindingStatus, SecretFinding, ConfidenceLevel
 from secret_exposure_monitor.domain.repository import Repository, RepoProvider
 from secret_exposure_monitor.domain.secret import secret_fingerprint, redact_secret
-from secret_exposure_monitor.domain.remediation import RemediationAction, RemediationWorkflow
+from secret_exposure_monitor.domain.remediation import (
+    RemediationAction,
+    RemediationPlaybook,
+    RemediationWorkflow,
+)
 
 
 class TestSecretFinding:
@@ -178,6 +182,33 @@ class TestRemediationWorkflow:
         assert RemediationAction.REVOKE.value == "revoke"
         assert RemediationAction.ROTATE.value == "rotate"
         assert RemediationAction.NOTIFY.value == "notify"
+
+
+class TestRemediationPlaybook:
+    """RemediationPlaybook wasn't imported by any test before this — its
+    `provider` field used to be required (`str`), which is fine for
+    provider-specific secrets (github_pat, aws_access_key) but would raise
+    a ValidationError for any secret type with no identifiable provider
+    (e.g. a generic high-entropy string). This exact bug previously broke
+    an equivalent RemediationOrchestrator in an earlier version of this
+    project — nothing in *this* version constructs a playbook yet, so it
+    hadn't bitten, but it's the same landmine."""
+
+    def test_playbook_with_provider(self):
+        playbook = RemediationPlaybook(
+            secret_type="github_personal_access_token",
+            provider="github",
+            steps=[RemediationAction.REVOKE, RemediationAction.NOTIFY],
+        )
+        assert playbook.provider == "github"
+
+    def test_playbook_without_provider(self):
+        """Generic/unknown secret types have no provider to key off of."""
+        playbook = RemediationPlaybook(
+            secret_type="generic_high_entropy_string",
+            steps=[RemediationAction.NOTIFY],
+        )
+        assert playbook.provider is None
 
 
 class TestConfidenceLevel:
